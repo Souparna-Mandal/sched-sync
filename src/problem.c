@@ -1,11 +1,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/time.h>
-#include <time.h>
 
 #include "fiber_manager.h"
-// #include "test_helper.h"
+#include "fairlock-main2.h"
+// #include"timing.h"
 
 typedef unsigned long long ull;
 typedef struct timespec timespec_t;
@@ -20,11 +19,13 @@ typedef struct {
     ull duration;
 } task_t;
 
-fiber_mutex_t mutex;
-
-ull time_diff(struct timeval t0, struct timeval t1) {
-    return (ull)((t1.tv_sec - t0.tv_sec) * 1000000 + (t1.tv_usec - t0.tv_usec));
-}
+#ifdef FAIRLOCK
+        // TODO: Implement FAIRLOCK logic here
+    struct fairlock lock;
+#endif
+#ifdef MUTEX
+    fiber_mutex_t mutex;
+#endif
 
 void* run_func(void* param) {
     task_t *task = (task_t *)param;
@@ -39,6 +40,7 @@ void* run_func(void* param) {
     while (time_diff(task->start_time, now) < task->duration * 1000000) {
 #ifdef FAIRLOCK
         // TODO: Implement FAIRLOCK logic here
+        fair_lock(&lock, task->id);
 #endif
 #ifdef MUTEX
         fiber_mutex_lock(&mutex);
@@ -56,6 +58,7 @@ void* run_func(void* param) {
 
 #ifdef FAIRLOCK
         // TODO: Implement FAIRLOCK logic here
+        fair_unlock(&lock);
 #endif
 #ifdef MUTEX
         fiber_mutex_unlock(&mutex);
@@ -92,7 +95,7 @@ int main(int argc, char *argv[]) {
     int nthreads = atoi(argv[1]);
     ull duration = atoll(argv[2]);
 
-    fiber_manager_init(nthreads + 1);
+    fiber_manager_init(nthreads);
     task_t tasks[nthreads];
     fiber_t* fibers[nthreads];
 
@@ -111,6 +114,8 @@ int main(int argc, char *argv[]) {
 
 #ifdef FAIRLOCK
     // TODO: Initialize FAIRLOCK here
+    fairlock_init(&lock);
+
 #endif
 #ifdef MUTEX
     fiber_mutex_init(&mutex);
