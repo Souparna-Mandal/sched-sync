@@ -3,8 +3,15 @@
 #include <stdlib.h>
 
 #include "fiber_manager.h"
-#include "fairlock-main2.h"
-// #include"timing.h"
+
+#ifdef FAIRLOCK
+    #include "scl.h"
+#endif
+#ifdef FAIRSCHED
+    #include "schedlock.h"
+#endif
+
+// #include "timing.h"   
 
 typedef unsigned long long ull;
 typedef struct timespec timespec_t;
@@ -19,7 +26,7 @@ typedef struct {
     ull duration;
 } task_t;
 
-#ifdef FAIRLOCK
+#if defined(FAIRLOCK) || defined(FAIRSCHED)
         // TODO: Implement FAIRLOCK logic here
     struct fairlock lock;
 #endif
@@ -38,7 +45,7 @@ void* run_func(void* param) {
     gettimeofday(&now, NULL);
 
     while (time_diff(task->start_time, now) < task->duration * 1000000) {
-#ifdef FAIRLOCK
+#if defined(FAIRLOCK) || defined(FAIRSCHED)
         // TODO: Implement FAIRLOCK logic here
         fair_lock(&lock, task->id);
 #endif
@@ -56,7 +63,7 @@ void* run_func(void* param) {
 
         lock_hold += time_diff(start, now);
 
-#ifdef FAIRLOCK
+#if defined(FAIRLOCK) || defined(FAIRSCHED)
         // TODO: Implement FAIRLOCK logic here
         fair_unlock(&lock);
 #endif
@@ -95,7 +102,7 @@ int main(int argc, char *argv[]) {
     int nthreads = atoi(argv[1]);
     ull duration = atoll(argv[2]);
 
-    fiber_manager_init(nthreads);
+    fiber_manager_init(nthreads+2);
     task_t tasks[nthreads];
     fiber_t* fibers[nthreads];
 
@@ -112,7 +119,7 @@ int main(int argc, char *argv[]) {
         tasks[i].duration = duration;
     }
 
-#ifdef FAIRLOCK
+#if defined(FAIRLOCK) || defined(FAIRSCHED)
     // TODO: Initialize FAIRLOCK here
     fairlock_init(&lock);
 

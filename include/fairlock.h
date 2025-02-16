@@ -5,7 +5,15 @@
 #include "hashmap.h"
 #include "list.h"
 
+#define CACHELINE 64
+#ifndef SPIN_LIMIT
+#define SPIN_LIMIT 20
+#endif
+#define SLEEP_GRANULARITY 8
+
 struct fairlock_waiter;
+
+
 
 struct fairlock {
     // DECLARE_HASHTABLE(waiters_lookup, 8);

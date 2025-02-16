@@ -55,6 +55,10 @@ clean:
 fairlock: CFLAGS += -DFAIRLOCK
 fairlock: $(TARGET)
 
+# Target for building with FAIRSCHED
+fairsched: CFLAGS += -DFAIRSCHED
+fairsched: $(TARGET)
+
 # Target for building with MUTEX
 mutex: CFLAGS += -DMUTEX
 mutex: $(TARGET)

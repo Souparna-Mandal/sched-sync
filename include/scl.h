@@ -11,8 +11,8 @@ static struct timeval inactive_threshold = {1, 0}; // 1 second
 
 struct fairlock_waiter {
     struct timeval banned_until;
-    struct timeval start_ticks;
     struct timeval end_ticks;
+    struct timeval start_ticks;
     struct hlist_node hash;   
     struct list_head list;    
     int fid;             // Fiber ID
@@ -125,12 +125,8 @@ int fair_trylock(struct fairlock *lock, int fid)
     return 1; /* Successfully acquired */
 }
 
-/* --------------------------------------------------------------------------
- * fair_lock
- *
- * Blocking version: we spin (yield) until it's our ticket, 
- * then re-check ban if needed.
- * -------------------------------------------------------------------------- */
+
+
 void fair_lock(struct fairlock *lock, int fid)
 {
     unsigned int my_ticket;
