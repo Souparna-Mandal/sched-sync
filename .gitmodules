@@ -1,0 +1,3 @@
+[submodule "libfiber"]
+	path = libfiber
+	url = git@github.com:Souparna-Mandal/libfiber.git
