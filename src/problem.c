@@ -3,11 +3,17 @@
 #include <stdlib.h>
 
 #include "fiber_manager.h"
-#include "fairlock-main2.h"
+#ifdef FAIRLOCK
+    #include "fairlock-main2.h"
+#endif
+#ifdef SCHEDLOCK
+    #include "schedlock.h"
+#endif
 // #include"timing.h"
 
 typedef unsigned long long ull;
 typedef struct timespec timespec_t;
+int nthreads;
 
 typedef struct {
     int id;
@@ -26,6 +32,11 @@ typedef struct {
 #ifdef MUTEX
     fiber_mutex_t mutex;
 #endif
+#ifdef SCHEDLOCK
+        // TODO: Implement FAIRLOCK logic here
+    struct sched_lock lock;
+#endif
+
 
 void* run_func(void* param) {
     task_t *task = (task_t *)param;
@@ -45,6 +56,9 @@ void* run_func(void* param) {
 #ifdef MUTEX
         fiber_mutex_lock(&mutex);
 #endif
+#ifdef SCHEDLOCK
+        sched_lock_acquire(&lock);
+#endif
 
         gettimeofday(&start, NULL);
         lock_acquires++;
@@ -62,6 +76,9 @@ void* run_func(void* param) {
 #endif
 #ifdef MUTEX
         fiber_mutex_unlock(&mutex);
+#endif
+#ifdef SCHEDLOCK
+        sched_lock_release(&lock, nthreads);
 #endif
 
         gettimeofday(&now, NULL);
@@ -92,10 +109,11 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    int nthreads = atoi(argv[1]);
+    nthreads = atoi(argv[1]);
+
     ull duration = atoll(argv[2]);
 
-    fiber_manager_init(nthreads);
+    fiber_manager_init(nthreads/2);
     task_t tasks[nthreads];
     fiber_t* fibers[nthreads];
 
@@ -119,6 +137,9 @@ int main(int argc, char *argv[]) {
 #endif
 #ifdef MUTEX
     fiber_mutex_init(&mutex);
+#endif
+#ifdef SCHEDLOCK
+    sched_lock_init(&lock);
 #endif
 
     for (int i = 0; i < nthreads; i++) {
