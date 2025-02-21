@@ -5,7 +5,7 @@
 #include "fiber_manager.h"  
 #include "fairlock.h"       
 
-static struct timeval inactive_threshold = {1, 0}; 
+// static struct timeval inactive_threshold = {1, 0}; 
 
 struct sched_lock {
     struct timeval start_ticks;
@@ -20,12 +20,12 @@ void sched_lock_init(struct sched_lock *lock)
     lock->slice_end_time = (struct timeval){0, 0};
 }
 
-void sched_lock_acquire(struct sched_lock *lock)
+void sched_lock_acquire(struct sched_lock *lock) // if a thread is running it must have access to the lock
 {
     gettimeofday(&lock->start_ticks, NULL);
     // peep in and get slice_time
     lock_stats_t* fiber_stats = get_current_fiber_stats();
-    timeval_add(&lock->slice_end_time, &lock->start_ticks, &fiber_stats->banned_until);
+    timeval_add(&lock->slice_end_time, &lock->start_ticks, &fiber_stats->slice_size);
 }
 
 void sched_lock_release(struct sched_lock *lock, int nthreads)
