@@ -1,3 +1,6 @@
+#ifndef _TIMING_H_
+#define _TIMING_H_
+
 #include <time.h>
 #include <sys/time.h>
 
@@ -16,3 +19,5 @@ void timeval_add(struct timeval *result, const struct timeval *t1, const struct 
         result->tv_usec %= 1000000;
     }
 }
+
+#endif

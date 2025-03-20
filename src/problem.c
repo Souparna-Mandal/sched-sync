@@ -9,7 +9,8 @@
 #ifdef SCHEDLOCK
     #include "schedlock.h"
 #endif
-// #include"timing.h"
+
+#include"timing.h"
 
 typedef unsigned long long ull;
 typedef struct timespec timespec_t;
@@ -78,7 +79,7 @@ void* run_func(void* param) {
         fiber_mutex_unlock(&mutex);
 #endif
 #ifdef SCHEDLOCK
-        sched_lock_release(&lock, nthreads);
+        sched_lock_release(&lock);
 #endif
 
         gettimeofday(&now, NULL);
@@ -113,7 +114,7 @@ int main(int argc, char *argv[]) {
 
     ull duration = atoll(argv[2]);
 
-    fiber_manager_init(nthreads/2);
+    fiber_manager_init(nthreads);
     task_t tasks[nthreads];
     fiber_t* fibers[nthreads];
 
