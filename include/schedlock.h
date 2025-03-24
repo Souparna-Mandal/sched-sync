@@ -8,7 +8,9 @@
 #include "fiber_manager.h"  
 #include "fairlock.h" 
 #include "fiber_mutex.h"  
-#include "fiber_spinlock.h"    
+#include "fiber_spinlock.h"
+
+#define SLICE_SIZE_US 100
 
 // static struct timeval inactive_threshold = {1, 0}; 
 
@@ -17,43 +19,46 @@ struct sched_lock {
     struct timeval end_ticks;
     struct timeval slice_end_time;
     // fiber_mutex_t mutex;
-    fiber_spinlock_t spinlock;
+    // fiber_spinlock_t spinlock;
+    lock_stats_t* lock_stat;
+    int slice_set;
 
 } sched_lock_t; 
 
 void sched_lock_init(struct sched_lock *lock)
 {
-    //fiber_mutex_init(&lock->mutex);
-    fiber_spinlock_init(&lock->spinlock);
+    // fiber_mutex_init(&lock->spinlock);
     lock->start_ticks = (struct timeval){0, 0};
     lock->end_ticks = (struct timeval){0, 0};
     lock->slice_end_time = (struct timeval){0, 0};
-
+    lock->slice_set = 0;
+    lock->lock_stat = malloc(sizeof(lock_stats_t));
+    lock->lock_stat->banned_until = (struct timeval){0, 0};
+    lock->lock_stat->slice_size = (struct timeval){0, 0};
 }
 
 void sched_lock_acquire(struct sched_lock *lock)
 {
     // Colour if UnColoured and Record Lock.
-    set_fiber_colour(0, (void*)lock);
+    set_fiber_colour((void*)lock, SLICE_SIZE_US);
     
     // Lock the underlying mutex.
     // fiber_mutex_lock(&lock->mutex);
-    fiber_spinlock_lock(&lock->spinlock);
+    //fiber_spinlock_lock(&lock->spinlock);
 
-    // Record the start time.
-    gettimeofday(&lock->start_ticks, NULL);
-    
-    // Retrieve the fiber's lock statistics.
-    lock_stats_t* fiber_stats = get_lock_fiber_data((void*)lock);
-    
-    // If no stats exist, insert one with a default slice value.
-    if (!fiber_stats) {
-        printf("Error: No Stats, something is wrong.\n");
-        abort();
+    if (lock->slice_set == 0){
+        // Record the start time.
+        gettimeofday(&lock->start_ticks, NULL);
+        
+        // Retrieve the fiber's lock statistics.
+        if (get_lock_fiber_data((void*)lock, lock->lock_stat) == 0){
+            printf("Error: No Stats, something is wrong.\n");
+            abort();
+        }
+        // Compute the slice end time.
+        timeval_add(&lock->slice_end_time, &lock->start_ticks, &lock->lock_stat->slice_size);
+        lock->slice_set = 1;
     }
-
-    // Compute the slice end time.
-    timeval_add(&lock->slice_end_time, &lock->start_ticks, &fiber_stats->slice_size);
 }
 
 void sched_lock_release(struct sched_lock *lock)
@@ -64,27 +69,29 @@ void sched_lock_release(struct sched_lock *lock)
     struct timeval time_adder;
     struct timeval banned_until;
     unsigned long long cs_length;
-    fiber_spinlock_unlock(&lock->spinlock); // find a way for it to enter if a fiber holds a lock
+    //fiber_spinlock_unlock(&lock->spinlock); // find a way for it to enter if a fiber holds a lock
     // fiber_mutex_unlock(&lock->mutex);
     gettimeofday(&now, NULL);
     if (timercmp(&now, &lock->slice_end_time,>)){ // enter if slice has expired
+        lock->slice_set = 0;
         int nthreads = get_fiber_count();
         // fiber_mutex_unlock(&lock->mutex);
         gettimeofday(&lock->end_ticks, NULL);
         if (nthreads > 1) {
             /* Expand ban tvime by (cs_length * num_threads). */
             cs_length = time_diff(lock->start_ticks, lock->end_ticks);
-            time_adder.tv_sec  = (cs_length * nthreads) / 1000000ULL;
-            time_adder.tv_usec = (cs_length * nthreads) % 1000000ULL;
+            time_adder.tv_sec  = (cs_length * (nthreads)) / 1000000ULL;
+            time_adder.tv_usec = (cs_length * (nthreads)) % 1000000ULL;
     
             timeval_add(&banned_until, &lock->end_ticks, &time_adder);
-            set_lock_fiber_data((void*)lock, &banned_until, NULL);
+            set_lock_fiber_data((void*)lock, banned_until, (struct timeval){0,SLICE_SIZE_US});
             }
          else {
             /* If only one fiber, no ban needed. */
-            set_lock_fiber_data((void*)lock, &lock->end_ticks, NULL);
+            set_lock_fiber_data((void*)lock, lock->end_ticks, (struct timeval){0,SLICE_SIZE_US});
         }
-        fiber_yield(); // Yield to Allow Others to get resources 
+        unset_colour();
+        fiber_yield(); // Yield to Allow Others to get resources
         return;
     }
     return;
