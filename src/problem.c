@@ -7,10 +7,13 @@
     #include "fairlock-main2.h"
 #endif
 #ifdef SCHEDLOCK
-    #include "schedlock.h"
+    #include "fiber_schedlock.h"
 #endif
 
-#include"timing.h"
+#ifndef SCHEDLOCK
+    #include"timing.h"
+#endif
+
 
 typedef unsigned long long ull;
 typedef struct timespec timespec_t;
@@ -49,7 +52,7 @@ void* run_func(void* param) {
 
     gettimeofday(&now, NULL);
 
-    while (time_diff(task->start_time, now) < task->duration * 1000000) {
+    while (time_difference(&task->start_time, &now) < task->duration * 1000000) {
 #ifdef FAIRLOCK
         // TODO: Implement FAIRLOCK logic here
         fair_lock(&lock, task->id);
@@ -67,9 +70,9 @@ void* run_func(void* param) {
         do {
             loop_in_cs++;
             gettimeofday(&now, NULL);
-        } while (time_diff(start, now) < task->cs);
+        } while (time_difference(&start, &now) < task->cs);
 
-        lock_hold += time_diff(start, now);
+        lock_hold += time_difference(&start, &now);
 
 #ifdef FAIRLOCK
         // TODO: Implement FAIRLOCK logic here
