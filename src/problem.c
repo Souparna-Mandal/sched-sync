@@ -3,11 +3,21 @@
 #include <stdlib.h>
 
 #include "fiber_manager.h"
-#include "fairlock-main2.h"
-// #include"timing.h"
+#ifdef FAIRLOCK
+    #include "fairlock-main2.h"
+#endif
+#ifdef SCHEDLOCK
+    #include "fiber_schedlock.h"
+#endif
+
+#ifndef SCHEDLOCK
+    #include"timing.h"
+#endif
+
 
 typedef unsigned long long ull;
 typedef struct timespec timespec_t;
+int nthreads;
 
 typedef struct {
     int id;
@@ -26,6 +36,11 @@ typedef struct {
 #ifdef MUTEX
     fiber_mutex_t mutex;
 #endif
+#ifdef SCHEDLOCK
+        // TODO: Implement FAIRLOCK logic here
+    struct sched_lock lock;
+#endif
+
 
 void* run_func(void* param) {
     task_t *task = (task_t *)param;
@@ -37,13 +52,16 @@ void* run_func(void* param) {
 
     gettimeofday(&now, NULL);
 
-    while (time_diff(task->start_time, now) < task->duration * 1000000) {
+    while (time_difference(&task->start_time, &now) < task->duration * 1000000) {
 #ifdef FAIRLOCK
         // TODO: Implement FAIRLOCK logic here
         fair_lock(&lock, task->id);
 #endif
 #ifdef MUTEX
         fiber_mutex_lock(&mutex);
+#endif
+#ifdef SCHEDLOCK
+        sched_lock_acquire(&lock);
 #endif
 
         gettimeofday(&start, NULL);
@@ -52,9 +70,9 @@ void* run_func(void* param) {
         do {
             loop_in_cs++;
             gettimeofday(&now, NULL);
-        } while (time_diff(start, now) < task->cs);
+        } while (time_difference(&start, &now) < task->cs);
 
-        lock_hold += time_diff(start, now);
+        lock_hold += time_difference(&start, &now);
 
 #ifdef FAIRLOCK
         // TODO: Implement FAIRLOCK logic here
@@ -62,6 +80,9 @@ void* run_func(void* param) {
 #endif
 #ifdef MUTEX
         fiber_mutex_unlock(&mutex);
+#endif
+#ifdef SCHEDLOCK
+        sched_lock_release(&lock);
 #endif
 
         gettimeofday(&now, NULL);
@@ -92,7 +113,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    int nthreads = atoi(argv[1]);
+    nthreads = atoi(argv[1]);
+
     ull duration = atoll(argv[2]);
 
     fiber_manager_init(nthreads);
@@ -119,6 +141,9 @@ int main(int argc, char *argv[]) {
 #endif
 #ifdef MUTEX
     fiber_mutex_init(&mutex);
+#endif
+#ifdef SCHEDLOCK
+    sched_lock_init(&lock);
 #endif
 
     for (int i = 0; i < nthreads; i++) {

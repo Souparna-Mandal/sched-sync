@@ -193,7 +193,7 @@ void fair_unlock(struct fairlock *lock)
     num_threads = atomic_load(&lock->num_threads);
     if (num_threads > 1) {
         /* Expand ban time by (cs_length * num_threads). */
-        cs_length = time_diff(waiter->start_ticks, now);
+        cs_length = time_diff(&waiter->start_ticks, &now);
         time_adder.tv_sec  = (cs_length * num_threads) / 1000000ULL;
         time_adder.tv_usec = (cs_length * num_threads) % 1000000ULL;
 

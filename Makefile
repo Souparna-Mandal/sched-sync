@@ -59,5 +59,9 @@ fairlock: $(TARGET)
 mutex: CFLAGS += -DMUTEX
 mutex: $(TARGET)
 
+#Target for building with SCHEDLOCK
+schedlock: CFLAGS += -DSCHEDLOCK
+schedlock: $(TARGET)
+
 
 .PHONY: clean fairlock mutex
